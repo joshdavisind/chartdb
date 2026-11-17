@@ -8,6 +8,9 @@ ARG VITE_DISABLE_ANALYTICS
 
 WORKDIR /usr/src/app
 
+# Repo-wide eslint needs more than the default Node heap
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
 COPY package.json package-lock.json ./
 
 RUN npm ci

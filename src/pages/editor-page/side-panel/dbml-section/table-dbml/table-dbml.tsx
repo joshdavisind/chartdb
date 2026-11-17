@@ -221,7 +221,12 @@ export const TableDBML: React.FC<TableDBMLProps> = () => {
 
                 const targetDiagram: Diagram = {
                     ...sourceDiagram,
-                    tables: diagramFromDBML.tables,
+                    // Areas aren't synced from the inline editor, so drop
+                    // group membership to avoid dangling area references
+                    tables: diagramFromDBML.tables?.map((table) => ({
+                        ...table,
+                        parentAreaId: null,
+                    })),
                     relationships: diagramFromDBML.relationships,
                     customTypes: diagramFromDBML.customTypes,
                 };

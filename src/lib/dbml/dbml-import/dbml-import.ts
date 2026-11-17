@@ -31,6 +31,10 @@ import {
     getPositionFromIndex,
 } from './dbml-import-error';
 import { validateCheckConstraintWithDetails } from '@/lib/check-constraints/check-constraints-validator';
+import {
+    applyTableGroupsLayout,
+    extractTableGroups,
+} from './dbml-table-groups';
 
 export const defaultDBMLDiagramName = 'DBML Import';
 
@@ -393,13 +397,16 @@ export const importDBMLToDiagram = async (
         validateArrayTypesForDatabase(dbmlContent, options.databaseType);
 
         const parser = new Parser();
+        // Pull out TableGroups first so they can become areas
+        const { content: contentWithoutGroups, tableGroups } =
+            extractTableGroups(dbmlContent);
         // Preprocess and sanitize DBML content
         const {
             content: preprocessedContent,
             arrayFields,
             fieldChecks,
             tableChecks,
-        } = preprocessDBML(dbmlContent);
+        } = preprocessDBML(contentWithoutGroups);
         const sanitizedContent = sanitizeDBML(preprocessedContent);
 
         // Handle content that becomes empty after preprocessing
@@ -1083,6 +1090,13 @@ export const importDBMLToDiagram = async (
             }
         );
 
+        // TableGroups become areas; grouped tables are laid out inside them
+        const areas = applyTableGroupsLayout({
+            tables,
+            tableGroups,
+            defaultSchema: defaultSchemas[options.databaseType],
+        });
+
         return {
             id: generateDiagramId(),
             name: defaultDBMLDiagramName,
@@ -1090,6 +1104,7 @@ export const importDBMLToDiagram = async (
             tables,
             relationships,
             customTypes,
+            ...(areas.length > 0 ? { areas } : {}),
             createdAt: new Date(),
             updatedAt: new Date(),
         };
