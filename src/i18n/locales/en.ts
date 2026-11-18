@@ -478,7 +478,7 @@ export const en = {
 
         import_diagram_dialog: {
             title: 'Import Diagram',
-            description: 'Import a diagram from a JSON file.',
+            description: 'Import a diagram from a JSON or DBML file.',
             cancel: 'Cancel',
             import: 'Import',
             error: {

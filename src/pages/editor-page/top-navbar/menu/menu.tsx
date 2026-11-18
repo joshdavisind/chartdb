@@ -182,7 +182,7 @@ export const Menu: React.FC<MenuProps> = () => {
                         </MenubarSubTrigger>
                         <MenubarSubContent>
                             <MenubarItem onClick={openImportDiagramDialog}>
-                                .json
+                                .json / .dbml file
                             </MenubarItem>
                             <MenubarSeparator />
                             <MenubarItem

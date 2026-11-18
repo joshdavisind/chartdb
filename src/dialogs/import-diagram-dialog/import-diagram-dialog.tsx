@@ -19,6 +19,15 @@ import { useNavigate } from 'react-router-dom';
 import { diagramFromJSONInput } from '@/lib/export-import-utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/alert/alert';
 import { AlertCircle } from 'lucide-react';
+import {
+    defaultDBMLDiagramName,
+    importDBMLToDiagram,
+} from '@/lib/dbml/dbml-import/dbml-import';
+import { parseDBMLError } from '@/lib/dbml/dbml-import/dbml-import-error';
+import { detectDatabaseTypeFromDBML } from '@/lib/dbml/dbml-import/dbml-database-type';
+import type { Diagram } from '@/lib/domain/diagram';
+
+const isDBMLFile = (file: File) => file.name.toLowerCase().endsWith('.dbml');
 
 export interface ImportDiagramDialogProps extends BaseDialogProps {}
 
@@ -30,6 +39,7 @@ export const ImportDiagramDialog: React.FC<ImportDiagramDialogProps> = ({
     const { addDiagram } = useStorage();
     const navigate = useNavigate();
     const [error, setError] = useState(false);
+    const [dbmlErrorMessage, setDbmlErrorMessage] = useState<string>();
 
     const onFileChange = useCallback((files: File[]) => {
         if (files.length === 0) {
@@ -43,6 +53,7 @@ export const ImportDiagramDialog: React.FC<ImportDiagramDialogProps> = ({
     useEffect(() => {
         if (!dialog.open) return;
         setError(false);
+        setDbmlErrorMessage(undefined);
         setFile(null);
     }, [dialog.open]);
     const { closeImportDiagramDialog, closeCreateDiagramDialog } = useDialog();
@@ -52,11 +63,36 @@ export const ImportDiagramDialog: React.FC<ImportDiagramDialogProps> = ({
 
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const json = e.target?.result;
-            if (typeof json !== 'string') return;
+            const text = e.target?.result;
+            if (typeof text !== 'string') return;
+
+            setError(false);
+            setDbmlErrorMessage(undefined);
 
             try {
-                const diagram = diagramFromJSONInput(json);
+                let diagram: Diagram;
+                if (isDBMLFile(file)) {
+                    try {
+                        diagram = await importDBMLToDiagram(text, {
+                            databaseType: detectDatabaseTypeFromDBML(text),
+                        });
+                    } catch (dbmlError) {
+                        const parsed = parseDBMLError(dbmlError);
+                        setDbmlErrorMessage(
+                            parsed
+                                ? `Line ${parsed.line}: ${parsed.message}`
+                                : dbmlError instanceof Error
+                                  ? dbmlError.message
+                                  : String(dbmlError)
+                        );
+                        throw dbmlError;
+                    }
+                    if (diagram.name === defaultDBMLDiagramName) {
+                        diagram.name = file.name.replace(/\.dbml$/i, '');
+                    }
+                } else {
+                    diagram = diagramFromJSONInput(text);
+                }
 
                 await addDiagram({ diagram });
 
@@ -100,7 +136,7 @@ export const ImportDiagramDialog: React.FC<ImportDiagramDialogProps> = ({
                 <DialogInternalContent>
                     <div className="flex flex-col p-1">
                         <FileUploader
-                            supportedExtensions={['.json']}
+                            supportedExtensions={['.json', '.dbml']}
                             onFilesChange={onFileChange}
                         />
                         {error ? (
@@ -110,9 +146,11 @@ export const ImportDiagramDialog: React.FC<ImportDiagramDialogProps> = ({
                                     {t('import_diagram_dialog.error.title')}
                                 </AlertTitle>
                                 <AlertDescription>
-                                    {t(
-                                        'import_diagram_dialog.error.description'
-                                    )}
+                                    {dbmlErrorMessage
+                                        ? `The DBML file couldn't be imported. ${dbmlErrorMessage}`
+                                        : t(
+                                              'import_diagram_dialog.error.description'
+                                          )}
                                 </AlertDescription>
                             </Alert>
                         ) : null}
